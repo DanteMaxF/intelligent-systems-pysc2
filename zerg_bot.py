@@ -23,7 +23,7 @@ class ZergAgent(base_agent.BaseAgent):
 
         self.attack_coordinates = None
 
-    def can_do(self, obs, action):
+    def can_do(self, obs, action):      # This function is used in order to check if the agent can execute an action
         return action in obs.observation.available_actions
 
     def unit_type_is_selected(self, obs, unit_type):    # Check if the selected unit types are the expected ones
@@ -37,7 +37,7 @@ class ZergAgent(base_agent.BaseAgent):
 
         return False
 
-    def get_units_by_type(self, obs, unit_type):
+    def get_units_by_type(self, obs, unit_type):  # Get a list of units in the map by the type
         return [unit for unit in obs.observation.feature_units
             if unit.unit_type == unit_type]
 
