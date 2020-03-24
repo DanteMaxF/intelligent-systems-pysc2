@@ -1,7 +1,8 @@
 from pysc2.agents import base_agent
 from pysc2.env import sc2_env
-from pysc2.lib import actions, features
+from pysc2.lib import actions, features, units
 from absl import app
+import random
 
 """
 Intelligent Systems
@@ -18,6 +19,13 @@ Andrés Quiroz Duarte    A01400033
 class ZergAgent(base_agent.BaseAgent):
     def step(self, obs):    # At the end of every step the agent must do an action
         super(ZergAgent, self).step(obs)
+
+        drones = [unit for unit in obs.observation.feature_units    # Get a list of all Drones on screen
+              if unit.unit_type == units.Zerg.Drone]
+
+        if len(drones):
+            drone = random.choice(drones)
+            return actions.FUNCTIONS.select_point("select_all_type", (drone.x, drone.y))    # Select al drones
         return actions.FUNCTIONS.no_op()
 
 
@@ -30,7 +38,8 @@ def main(unused_argv):
                 players=[sc2_env.Agent(sc2_env.Race.zerg),                              # First player: Our Agent
                     sc2_env.Bot(sc2_env.Race.random, sc2_env.Difficulty.very_easy)],    # Second player: A predefined bot
                 agent_interface_format=features.AgentInterfaceFormat(                   # Screen and minimap setup
-                    feature_dimensions=features.Dimensions(screen=84, minimap=64)),
+                    feature_dimensions=features.Dimensions(screen=84, minimap=64),
+                    use_feature_units=True),                                            # Enable feature units
                 step_mul=16,                                                            # Number of steps before the agent choose an action
                 game_steps_per_episode=0,                                               # Length of the game
                 visualize=True) as env:
