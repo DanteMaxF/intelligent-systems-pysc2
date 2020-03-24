@@ -18,6 +18,14 @@ Andrés Quiroz Duarte    A01400033
 # Creating the class of the agent
 class ZergAgent(base_agent.BaseAgent):
 
+    def __init__(self):
+        super(ZergAgent, self).__init__()
+
+        self.attack_coordinates = None
+
+    def can_do(self, obs, action):
+        return action in obs.observation.available_actions
+
     def unit_type_is_selected(self, obs, unit_type):    # Check if the selected unit types are the expected ones
         if (len(obs.observation.single_select) > 0 and
         obs.observation.single_select[0].unit_type == unit_type):
@@ -35,11 +43,33 @@ class ZergAgent(base_agent.BaseAgent):
 
     def step(self, obs):    # At the end of every step the agent must do an action
         super(ZergAgent, self).step(obs)
+
+        if obs.first():        # Check our current position at our first step to calculate the attack coordinates
+            player_y, player_x = (obs.observation.feature_minimap.player_relative ==
+                                    features.PlayerRelative.SELF).nonzero()
+            xmean = player_x.mean()
+            ymean = player_y.mean()
+            
+            if xmean <= 31 and ymean <= 31:
+                self.attack_coordinates = (49, 49)
+            else:
+                self.attack_coordinates = (12, 16)
+
+        zerglings = self.get_units_by_type(obs, units.Zerg.Zergling)
+
+        if len(zerglings) >= 10:    # Verify that we have a considerable amount of Zerglings to attack 
+            if self.unit_type_is_selected(obs, units.Zerg.Zergling):
+                if self.can_do(obs, actions.FUNCTIONS.Attack_minimap.id):
+                    return actions.FUNCTIONS.Attack_minimap("now",
+                                                        self.attack_coordinates)    # Attack the enemy
+
+            if self.can_do(obs, actions.FUNCTIONS.select_army.id):
+                return actions.FUNCTIONS.select_army("select")      # Select the army
+
         spawning_pools = self.get_units_by_type(obs, units.Zerg.SpawningPool)
         if len(spawning_pools) == 0:
             if self.unit_type_is_selected(obs, units.Zerg.Drone):
-                if (actions.FUNCTIONS.Build_SpawningPool_screen.id in 
-                    obs.observation.available_actions):   # Check if we have enough resources to build a Spawning Pool
+                if self.can_do(obs, actions.FUNCTIONS.Build_SpawningPool_screen.id):   # Check if we have enough resources to build a Spawning Pool
                     x = random.randint(0, 83)
                     y = random.randint(0, 83)
                     return actions.FUNCTIONS.Build_SpawningPool_screen("now", (x, y))   # Build a Spawning Pool at a random place
@@ -51,15 +81,21 @@ class ZergAgent(base_agent.BaseAgent):
                 return actions.FUNCTIONS.select_point("select_all_type", (drone.x, drone.y))    # Select all drones on screen
 
         if self.unit_type_is_selected(obs, units.Zerg.Larva):
-            if (actions.FUNCTIONS.Train_Zergling_quick.id in 
-                obs.observation.available_actions):
-                return actions.FUNCTIONS.Train_Zergling_quick("now")    # Create Zerglings
-        
-        larvae = self.get_units_by_type(obs, units.Zerg.Larva)      # Get a list of larvas
+            free_supply = (obs.observation.player.food_cap -
+                            obs.observation.player.food_used)
+            if free_supply == 0:
+                if self.can_do(obs, actions.FUNCTIONS.Train_Overlord_quick.id):
+                    return actions.FUNCTIONS.Train_Overlord_quick("now")        # Create an Overlord in case there are no free supplies
+
+            if self.can_do(obs, actions.FUNCTIONS.Train_Zergling_quick.id):
+                return actions.FUNCTIONS.Train_Zergling_quick("now")            # If there are free supplies, start creating Zerglings
+    
+        larvae = self.get_units_by_type(obs, units.Zerg.Larva)
         if len(larvae) > 0:
             larva = random.choice(larvae)
       
-            return actions.FUNCTIONS.select_point("select_all_type", (larva.x, larva.y))    # Select all larvas on screen
+            return actions.FUNCTIONS.select_point("select_all_type", (larva.x,
+                                                                      larva.y))
 
         return actions.FUNCTIONS.no_op()
 
